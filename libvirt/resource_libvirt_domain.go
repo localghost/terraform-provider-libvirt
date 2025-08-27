@@ -357,6 +357,31 @@ func resourceLibvirtDomain() *schema.Resource {
 							Optional: true,
 							Computed: true,
 						},
+                        "topology": {
+                            Type: schema.TypeList,
+                            Optional: true,
+                            MaxItems: 1,
+                            ForceNew: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"threads": {
+										Type:     schema.TypeInt,
+										Required: true,
+                                        ForceNew: true,
+									},
+									"cores": {
+										Type:     schema.TypeInt,
+										Required: true,
+                                        ForceNew: true,
+									},
+									"sockets": {
+										Type:     schema.TypeInt,
+										Required: true,
+                                        ForceNew: true,
+									},
+								},
+							},
+                        },
 					},
 				},
 			},
@@ -498,12 +523,6 @@ func resourceLibvirtDomainCreate(ctx context.Context, d *schema.ResourceData, me
 		domainDef.Name = name.(string)
 	}
 
-	if cpuMode, ok := d.GetOk("cpu.0.mode"); ok {
-		domainDef.CPU = &libvirtxml.DomainCPU{
-			Mode: cpuMode.(string),
-		}
-	}
-
 	domainDef.Memory = &libvirtxml.DomainMemory{
 		Value: uint(d.Get("memory").(int)),
 		Unit:  "MiB",
@@ -511,6 +530,30 @@ func resourceLibvirtDomainCreate(ctx context.Context, d *schema.ResourceData, me
 	domainDef.VCPU = &libvirtxml.DomainVCPU{
 		Value: uint(d.Get("vcpu").(int)),
 	}
+
+	if cpuMode, ok := d.GetOk("cpu.0.mode"); ok {
+		domainDef.CPU.Mode = cpuMode.(string)
+	}
+	if cpuTopology, ok := d.GetOk("cpu.0.topology.0"); ok {
+		cpuTopology := cpuTopology.(map[string]interface{})
+		sockets := cpuTopology["sockets"].(int)
+		cores := cpuTopology["cores"].(int)
+		threads := cpuTopology["threads"].(int)
+
+		if (sockets * cores * threads) > int(domainDef.VCPU.Value) {
+			return diag.Errorf(
+				"(%d sockets * %d cores * %d threads) is more than the vCPU count (%d)",
+				sockets, cores, threads, domainDef.VCPU.Value,
+			)
+		}
+
+        domainDef.CPU.Topology = &libvirtxml.DomainCPUTopology {
+            Sockets: sockets,
+            Cores: cores,
+            Threads: threads,
+        }
+	}
+
 	domainDef.Description = d.Get("description").(string)
 
 	domainDef.OS.Kernel = d.Get("kernel").(string)
