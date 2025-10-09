@@ -30,13 +30,18 @@ func resourceCombustion() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+            "libvirt_uri": {
+                Type: schema.TypeString,
+                Optional: true,
+                ForceNew: true,
+            },
 		},
 	}
 }
 
 func resourceCombustionCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	log.Printf("[DEBUG] creating combustion file")
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 
 	combustion := newIgnitionDef()
 
@@ -57,7 +62,8 @@ func resourceCombustionCreate(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourceCombustionRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	combustion, err := newIgnitionDefFromRemoteVol(virConn, d.Id())
 	d.Set("pool", combustion.PoolName)
@@ -71,7 +77,7 @@ func resourceCombustionRead(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceCombustionDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 
 	key, err := getIgnitionVolumeKeyFromTerraformID(d.Id())
 	if err != nil {

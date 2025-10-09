@@ -1,7 +1,9 @@
 package libvirt
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -12,9 +14,20 @@ func Provider() *schema.Provider {
 		Schema: map[string]*schema.Schema{
 			"uri": {
 				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("LIBVIRT_DEFAULT_URI", nil),
+				Required:    false,
+				Optional:    true,
+                ConflictsWith: []string{"uris"},
 				Description: "libvirt connection URI for operations. See https://libvirt.org/uri.html",
+			},
+			"uris": {
+				Type:     schema.TypeList,
+				Required: false,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+                ConflictsWith: []string{"uri"},
+				Description: "libvirt connection URIs for operations. See https://libvirt.org/uri.html",
 			},
 		},
 
@@ -58,21 +71,41 @@ func CleanupLibvirtConnections() {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-	config := Config{
-		URI: d.Get("uri").(string),
-	}
-	log.Printf("[DEBUG] Configuring provider for '%s': %v", config.URI, d)
+	var libvirt_uris []interface{}
+	if uri, ok := d.GetOk("uri"); ok {
+		libvirt_uris = append(libvirt_uris, uri)
+	} else if uris, ok := d.GetOk("uris"); ok {
+        libvirt_uris = uris.([]interface{})
+	} else {
+        uri := os.Getenv("LIBVIRT_DEFAULT_URI")
+        if uri != "" {
+            libvirt_uris = append(libvirt_uris, uri)
+        }
+    }
+    if len(libvirt_uris) == 0 {
+		return nil, fmt.Errorf("neither uri, uris nor LIBVIRT_DEFAULT_URI environment variable set")
+    }
 
-	if client, ok := globalClientMap[config.URI]; ok {
-		log.Printf("[DEBUG] Reusing client for uri: '%s'", config.URI)
-		return client, nil
-	}
+	result := make(map[string]*Client)
+	for _, uri := range libvirt_uris {
+        uri := uri.(string)
+		config := Config{
+			URI: uri,
+		}
+		log.Printf("[DEBUG] Configuring provider for '%s': %v", config.URI, d)
 
-	client, err := config.Client()
-	if err != nil {
-		return nil, err
+		if client, ok := globalClientMap[config.URI]; ok {
+			log.Printf("[DEBUG] Reusing client for uri: '%s'", config.URI)
+			result[config.URI] = client
+		} else {
+			client, err := config.Client()
+			if err != nil {
+				return nil, err
+			}
+			globalClientMap[config.URI] = client
+			result[config.URI] = client
+		}
 	}
-	globalClientMap[config.URI] = client
-
-	return client, nil
+    result["default"] = result[libvirt_uris[0].(string)]
+	return result, nil
 }
