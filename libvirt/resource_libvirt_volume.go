@@ -75,6 +75,11 @@ func resourceLibvirtVolume() *schema.Resource {
 					},
 				},
 			},
+            "libvirt_uri": {
+                Type: schema.TypeString,
+                Optional: true,
+                ForceNew: true,
+            },
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -83,8 +88,8 @@ func resourceLibvirtVolume() *schema.Resource {
 }
 
 func resourceLibvirtVolumeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	poolName := "default"
 	if _, ok := d.GetOk("pool"); ok {
@@ -275,7 +280,7 @@ be smaller than the backing store specified with
 
 // resourceLibvirtVolumeRead returns the current state for a volume resource.
 func resourceLibvirtVolumeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := meta.(map[string]*Client)[d.Get("libvirt_uri").(string)]
 	virConn := client.libvirt
 
 	poolName := d.Get("pool").(string)
@@ -361,7 +366,7 @@ func resourceLibvirtVolumeRead(ctx context.Context, d *schema.ResourceData, meta
 
 // resourceLibvirtVolumeDelete removed a volume resource.
 func resourceLibvirtVolumeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 
 	return diag.FromErr(volumeDelete(ctx, client, d.Id()))
 }

@@ -130,6 +130,11 @@ func resourceLibvirtPool() *schema.Resource {
 				Deprecated:    "use target.path instead",
 				ConflictsWith: []string{"target.0.path"},
 			},
+            "libvirt_uri": {
+                Type: schema.TypeString,
+                Optional: true,
+                ForceNew: true,
+            },
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -139,7 +144,7 @@ func resourceLibvirtPool() *schema.Resource {
 }
 
 func resourceLibvirtPoolCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 	virConn := client.libvirt
 
 	poolName := d.Get("name").(string)
@@ -251,7 +256,7 @@ func resourceLibvirtPoolCreate(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceLibvirtPoolRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 	virConn := client.libvirt
 
 	uuid := parseUUID(d.Id())
@@ -329,7 +334,7 @@ func resourceLibvirtPoolRead(ctx context.Context, d *schema.ResourceData, meta i
 }
 
 func resourceLibvirtPoolDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 	virConn := client.libvirt
 
 	uuid := parseUUID(d.Id())

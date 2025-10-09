@@ -289,6 +289,11 @@ func resourceLibvirtNetwork() *schema.Resource {
 					},
 				},
 			},
+            "libvirt_uri": {
+                Type: schema.TypeString,
+                Optional: true,
+                ForceNew: true,
+            },
 		},
 	}
 }
@@ -297,7 +302,8 @@ func resourceLibvirtNetwork() *schema.Resource {
 func resourceLibvirtNetworkUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// check the list of things that can be changed dynamically
 	// in https://wiki.libvirt.org/page/Networking#virsh_net-update
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	uuid := parseUUID(d.Id())
 	network, err := virConn.NetworkLookupByUUID(uuid)
@@ -340,7 +346,8 @@ func resourceLibvirtNetworkUpdate(ctx context.Context, d *schema.ResourceData, m
 // resourceLibvirtNetworkCreate creates a libvirt network from the resource definition.
 func resourceLibvirtNetworkCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// see https://libvirt.org/formatnetwork.html
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	networkDef, err := newNetworkDef()
 	if err != nil {
@@ -492,7 +499,8 @@ func resourceLibvirtNetworkCreate(ctx context.Context, d *schema.ResourceData, m
 func resourceLibvirtNetworkRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	log.Printf("[DEBUG] Read resource libvirt_network")
 
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	uuid := parseUUID(d.Id())
 
@@ -645,7 +653,8 @@ func resourceLibvirtNetworkRead(ctx context.Context, d *schema.ResourceData, met
 }
 
 func resourceLibvirtNetworkDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	log.Printf("[DEBUG] Deleting network ID %s", d.Id())
 

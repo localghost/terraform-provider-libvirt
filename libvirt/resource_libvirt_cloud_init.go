@@ -41,6 +41,11 @@ func resourceCloudInitDisk() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+            "libvirt_uri": {
+                Type: schema.TypeString,
+                Optional: true,
+                ForceNew: true,
+            },
 		},
 	}
 }
@@ -48,7 +53,7 @@ func resourceCloudInitDisk() *schema.Resource {
 func resourceCloudInitDiskCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	log.Printf("[DEBUG] creating cloudinit")
 
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 
 	cloudInit := newCloudInitDef()
 	cloudInit.UserData = d.Get("user_data").(string)
@@ -73,7 +78,8 @@ func resourceCloudInitDiskCreate(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceCloudInitDiskRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	virConn := meta.(*Client).libvirt
+    client := getLibvirtClientForResource(d, meta)
+	virConn := client.libvirt
 
 	ci, err := newCloudInitDefFromRemoteISO(ctx, virConn, d.Id())
 	if err != nil {
@@ -92,7 +98,7 @@ func resourceCloudInitDiskRead(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceCloudInitDiskDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*Client)
+    client := getLibvirtClientForResource(d, meta)
 
 	key, err := getCloudInitVolumeKeyFromTerraformID(d.Id())
 	if err != nil {
